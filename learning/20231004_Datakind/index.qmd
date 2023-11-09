@@ -1,0 +1,25 @@
+---
+title: "DataKind DataDive (09/2023)"
+author: "Bamini Balaji"
+date: "2023-10-04"
+categories: ["Geospatial"]
+image: "DataDive_logo.png"
+---
+
+I had a great time volunteering in DataKind's DataDive event in collaboration with the International Monetary Fund (IMF).
+
+Over a short 4 day window we collaborated globally across time zones to build pipelines to help estimate financial and economic exposure and vulnerabilities of built-up areas that are at risk to (increasing) climate hazards.
+
+Here's some things I learned:
+
+1.  Using the [Nominatim API](https://nominatim.org/release-docs/latest/) to access OpenStreetMap (OSM) data and reverse geo-code buildings and even identify surface and roof materials of structures
+2. Google has an incredible [Open Buildings dataset](https://sites.research.google/open-buildings/) with impressive global coverage and accuracy exceeding data in OSM!
+3. I focused on data from South Africa and Mozambique. Coastal Mozambique is hit with a lot of cyclones yearly, making analyses like these invaluable for safety planning!
+4. Streamlit is a pretty simple tool for web apps and I can see some advantages over Shiny (previously only R focused) mainly in that it is less verbose. However its focus on simplicity could prove challenging for apps with lot of reactive complexity.
+
+Here is a simple [app prototype](https://datadive-imf-climate-draft.streamlit.app/) I created to look at storm traces and buildings in South Africa and Mozambique.
+
+![Streamlit](Streamlit_app.png)
+
+
+![Certificate](IMFDataDiveCertificate.png)

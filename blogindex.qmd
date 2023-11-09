@@ -1,0 +1,13 @@
+---
+title: "TIL"
+listing:
+  contents: learning
+  sort: "date desc"
+  type: default
+  categories: unnumbered
+  sort-ui: false
+  filter-ui: false
+page-layout: full
+---
+
+Today I learned!

@@ -1,0 +1,31 @@
+project:
+  type: website
+
+website:
+  search: false
+  title: "Bamini Balaji"
+  # $\beta\beta$
+  navbar:
+#    title: false
+#    logo: logo.JPG
+#    background: dark
+    right:
+      - text: "About"
+        file: about.qmd
+      - text: "Projects"
+        file: index.qmd
+      - text: "TIL"
+        file: blogindex.qmd
+      - text: "Contact"
+        href: "mailto:bbamini@gmail.com"
+      - icon: github
+        href: https://github.com/bbamini
+      - icon: linkedin
+        href: www.linkedin.com/in/bamini-balaji
+format:
+  html:
+    theme: minty
+    css: styles.css
+
+
+

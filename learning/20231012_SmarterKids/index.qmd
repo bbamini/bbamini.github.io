@@ -1,0 +1,466 @@
+---
+title: "Analysis: The Smartest Kids in the World"
+author: "Bamini Balaji"
+date: "2023-10-14"
+categories: ["Book", "Mixed Models"]
+image: "book_cover.jpg"
+knitr:
+  opts_chunk: 
+    warning: false
+    message: false
+format:
+  html:
+    code-fold: true
+    toc: true
+    toc-expand: 4
+freeze: true
+---
+
+I recently read "The Smartest Kids in the World and how they got that way" by Amanda Ripley. 
+
+So is there some kind of a trick to intelligence and education? The more I read, I realized the findings agreed with my personal experiences learning in school systems within and outside of the United States.
+
+Interestingly, certain key features paved the way pushing countries like Finland, South Korea, Poland and Singapore to improve education outcomes - all while United States lags behind.
+
+
+## How did Ripley quantify "smart"?
+
+The PISA is an international standardized test that assesses 15 year old student's reading, math and science and also surveys their attitudes and backgrounds.
+
+Luckily some of this data is available in an r package `learningtower`. So I wanted to dive into the data and see for myself. Also, this was a great excuse to practice some mixed effects modeling 😀
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(tidymodels)
+library(learningtower)
+library(plotly)
+library(Hmisc)
+library(lme4)
+library(sjPlot)
+
+all_student <- load_student("all")
+data("school")
+data("countrycode")
+
+
+school_student <- left_join(
+  all_student, 
+  school, 
+  by = c("school_id", "country", "year")) %>%
+  left_join(
+    countrycode,
+    by = "country"
+  )
+
+# Selecting a few countries 
+countries <- c(
+  "Brazil", "South Korea", "Japan", "United States",
+  "Canada", "Singapore", "Malaysia", 
+  "Finland", "Denmark", "Peru",
+  "Poland", "Germany"
+)
+```
+
+
+## Exploring the data
+
+Here are the PISA scores for countries with mostly complete datasets.
+
+```{r explore, message=FALSE, warning=FALSE}
+#| fig-width: 12
+#| fig-height: 12
+
+df <- school_student %>%
+  select(year, country_name, math, read, science, stu_wgt) %>%
+  pivot_longer(cols = c("math", "read", "science"), names_to = "subject", values_to = "scores") %>%
+  #filter(subject == "math") %>%
+  filter(!is.na(scores)) %>%
+  filter(year %in% c(2006, 2009, 2012, 2015, 2018)) %>% 
+  group_by(country_name, subject) %>%
+  filter(n_distinct(year) == 5) %>%
+  ungroup() %>% # Selecting countries with complete timelines
+  group_by(country_name, year, subject) %>%
+  dplyr::summarize(
+    mean_score = weighted.mean(scores, w=stu_wgt),
+    sd_score = sqrt(Hmisc::wtd.var(scores, weights=stu_wgt))
+  ) %>%
+  ungroup() %>%
+  mutate(
+    lower = mean_score-sd_score,
+    upper = mean_score+sd_score
+  )
+  
+df$country_name = reorder(df$country_name, df$mean_score, mean)
+df$country_name <- droplevels(df$country_name)
+p_yr <- df %>% 
+  ggplot(aes(x = country_name, y = mean_score, color = year)) +
+  geom_point(position = position_dodge(width = .5)) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), position=position_dodge(width = .5)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  ggtitle("Global Scores by Subject") +
+  xlab("Country") +
+  ylab("Mean Score +/- 1 SD") + 
+  theme(legend.position="top") + 
+  facet_wrap(~subject, nrow=3, scales="free_y")
+
+ggplotly(p_yr)
+
+```
+
+```{r explore2, message=FALSE, warning=FALSE}
+#| fig-width: 10
+#| fig-height: 6
+p <- school_student %>%
+  select(year, country_name, math, read, science, stu_wgt) %>%
+  group_by(year, country_name) %>%
+  dplyr::summarize(math = weighted.mean(math, w=stu_wgt), 
+            read = weighted.mean(read, w=stu_wgt), 
+            science = weighted.mean(science, w=stu_wgt)) %>%
+  pivot_longer(cols = c("math", "read", "science"), names_to = "subject", values_to = "scores") %>%
+  ungroup() %>%
+  filter(country_name %in% countries) %>%
+  mutate(year = as.numeric(as.character(year))) %>%
+  ggplot(aes(x = year, y = scores, color = country_name)) +
+  facet_wrap(~subject) + geom_point() + geom_line()
+
+ggplotly(p)
+```
+
+
+## Quantifying *smartness* using data
+
+
+
+### Modeling Individual Scores
+
+Focusing on the math dataset for year 2018, first I cleaned up some of the variables.
+
+```{r cleanup}
+
+math_df <- school_student %>%
+  filter(!is.na(math) & year == 2018) %>%
+  mutate(television = as.character(television), computer = as.character(computer),
+         car = as.character(car)) %>%
+  mutate(television = ifelse(television %in% c("1", "2", "3+"), "yes", television)) %>%
+  mutate(car = ifelse(car %in% c("1", "2", "3+"), "yes", car)) %>%
+  mutate(computer = ifelse(((is.na(computer)) & (computer_n %in% c("1", "2", "3+"))), "yes", computer)) %>%
+  mutate(
+    n_books = case_when(
+      book == "0-10" ~ 0,
+      book == "11-25" ~ 1,
+      book == "26-100" ~ 2,
+      book == "201-500" ~ 3,
+      book == "more than 500" ~ 4
+    ),
+    mother_educ_level = case_when(
+      mother_educ == "less than ISCED1" ~ 0,
+      mother_educ == "ISCED 1" ~ 1,
+      mother_educ == "ISCED 2" ~ 2,
+      mother_educ == "ISCED 3A" ~ 3,
+      mother_educ == "ISCED 3B, C" ~ 3,
+    ),
+    father_educ_level = case_when(
+      father_educ == "less than ISCED1" ~ 0,
+      father_educ == "ISCED 1" ~ 1,
+      father_educ == "ISCED 2" ~ 2,
+      father_educ == "ISCED 3A" ~ 3,
+      father_educ == "ISCED 3B, C" ~ 3,
+    )
+  )
+```
+
+At the individual student level, we see the variables `mother_educ`, `father_educ`, `gender`, `computer`, `internet`, `desk`, `room`, `television`, `car`, `book`, `wealth`, `escs`.
+
+I chose to convert ordered categorical variables such as number of books and mother/father education levels to numerical values for ease of modeling and interpretation. I also converted television, car and computer to binary values to indicate whether or not they were accessible rather than retaining the number of each that was available.
+
+And a simple linear model here shows that all of these may be predictive of a student's math scores.
+
+```{r student}
+lm_df <- math_df %>%
+  mutate_at(c("wealth", "escs","school_size", "staff_shortage"),
+            ~(scale(.) %>% as.vector)) %>%
+  mutate(boy_fraction = enrol_boys/school_size) %>%
+  select(math, mother_educ_level, father_educ_level, gender, computer, internet, desk, room, television, car, n_books, wealth, escs)
+
+lmod <- (lm(math ~ ., lm_df, na.action="na.omit"))
+
+summary(lmod)
+```
+
+*Note:* Due to missing values, only a complete dataset of `r round(dim(na.omit(lm_df))[1]/dim(lm_df)[1]*100)`% was used in the linear model.
+
+-   It's understandable that parent's education may affect family attitudes towards the importance of academics.
+
+-   Perhaps presence of computer, internet, desk, room, TV, car, books and wealth are indicators of socioconomic status. Some of these may also affect a student's ability to learn from home. Furthermore, the `escs` or index of economic, social and cultural status likely represents these variables too.
+
+-   Gender does seem predictive of the score. If all other factors are equal, a boy would have a score higher by `r round(lmod$coefficients["gendermale"],2)` points in math!
+
+-   It's important to note that these predictive variables are not necessarily independent. For example `wealth` is correlated with `escs` as seen below. Additionally, students whose mothers are more educated seem to also have more books. Both parents also likely have similar education backgrounds.
+
+```{r cor_var}
+ggplot(lm_df %>% na.omit(), aes(x = wealth, y = escs)) +
+  geom_point(alpha=0.05) +
+  geom_smooth(method = "lm")
+
+ggplot(lm_df %>% na.omit(), 
+       aes(x = as.factor(mother_educ_level), y = as.factor(n_books))) +
+    geom_bin_2d() +
+  labs(x = "Mother Education Level", y = "Number of books")
+
+ggplot(lm_df %>% na.omit(), 
+       aes(x = as.factor(mother_educ_level), y = as.factor(father_educ_level))) +
+    geom_bin_2d() +
+  labs(x = "Mother Education Level", y = "Father Education Level")
+```
+
+This suggests there is a risk of multicollinearity. Here is the evaluation of variance inflation. It shows that `escs` and `wealth` have high VIF. 
+
+```{r lmod_vif}
+car::vif(lmod)
+```
+
+
+
+### Modeling School Averaged Scores
+
+At the school level, we see the variables `fund_gov`, `fund_fees`, `fund_donation`, `enrol_boys`, `enrol_girls`, `stratio`, `public_private`, `staff_shortage`, `sch_wgt`, `school_size`. And a simple linear model here shows that most of these may be predictive of better school outcomes.
+
+```{r school}
+school_df <- math_df %>%
+  group_by(school_id, fund_gov, fund_fees, fund_donation, enrol_boys, enrol_girls, school_size, stratio, public_private, staff_shortage) %>%
+  dplyr::summarize(math = weighted.mean(math,w=stu_wgt,  na.rm = T)) %>%
+  ungroup() %>%
+  mutate(
+    boy_fraction = enrol_boys/school_size
+  ) %>%
+  mutate_at(c("school_size", "staff_shortage"), ~(scale(.) %>% as.vector)) %>%
+  select(-enrol_boys, -enrol_girls)
+
+lsmod <- lm(math ~ ., school_df %>% select(-school_id), na.action="na.omit")
+
+summary(lsmod)
+```
+
+-   Funding from fees does not affect test scores. In fact, the source of funding whether it is fees, government or donations seems to only weakly influence test scores.
+
+-   With all other factors being equal, a public school is `r round(abs(lsmod$coefficients["public_privatepublic"]),2)` points lower than a private school for math scores.
+
+-   Schools with more students have higher average math scores. But as expected, higher student to teacher ratio inversely correlates with score as expected.
+
+-   More boys attending the school seems to proportionally lower math scores for the school! This seems to go against the individual score model where boys seemed to score higher on the test.
+
+-   Higher staff shortage in the school negatively influences the school's scores.
+
+*Note:* Due to missing values, only a complete dataset of `r round(dim(na.omit(school_df))[1]/dim(school_df)[1]*100)`% was used in the linear model.
+
+
+
+## Mixed Effects Model
+
+Here's a chance to try a mixed effects model. The reason is that we have hierarchical data (student within a school within a country). Clearly there is student-to-student variability based on the various indicators recorded in this data set. But there may also be school-to-school variability and country-to-country variability.
+
+The above linear models did not consider the impact of school and country towards an individuals test scores. The book described the socioeconomic factors for different countries that impacted their approach to education. So we expect these to affect our analysis.
+
+For simplicity, we will look at the countries mentioned in the book in the year of 2018.
+
+```{r lmer_data}
+
+sub_math_df <- math_df %>%
+  select(math, student_id, country_name, 
+         mother_educ_level, father_educ_level,gender, 
+         computer, internet, desk, room, television, car, 
+         n_books, wealth, escs, school_id,
+         fund_gov, fund_fees, fund_donation, 
+         enrol_boys, enrol_girls,
+         stratio, public_private, staff_shortage, 
+         school_size, stu_wgt, sch_wgt) %>%
+  na.omit() %>%
+  filter((country_name %in% c("United States", "South Korea",
+                                              "Poland", "Finland", "Singapore"))) %>% 
+  mutate_at(c("wealth", "escs","school_size", "staff_shortage"),
+            ~(scale(.) %>% as.vector)) %>%
+  mutate(boy_fraction = enrol_boys/school_size)
+```
+
+First, lets group schools into public or private so that each country has 2 school levels. This is with the caveat that there is more public school data available.
+
+```{r school_diff}
+table(sub_math_df$country_name, sub_math_df$public_private) %>% knitr::kable()
+
+sub_math_df %>% group_by(country_name) %>% dplyr::summarize(n_schools = n_distinct(school_id)) %>% knitr::kable()
+```
+
+`gender` and `escs` are interesting to model and likely correlate with other student level variables.
+
+```{r plots}
+ggplot(sub_math_df, aes(x = escs, y = math, color = public_private)) +
+  facet_wrap(~country_name) +
+  geom_point(alpha = 0.2, aes(shape = gender)) +
+  scale_shape_manual(values = c(3, 16)) +
+  geom_smooth(method = "lm", se=FALSE)
+
+ggplot(sub_math_df, aes(x = gender, y = math, color = public_private)) +
+  facet_wrap(~country_name) +
+  geom_boxplot()
+```
+
+
+### Students in a Schools in a Country
+
+Here is a hierarchical model with intercepts varying by countries and by grouping of public/private schools within countries. We are assuming that each predictor influences schools and countries in the same way with identical slopes for the random effects.
+
+```{r model_pub_pri, class.source = 'fold-show'}
+mod1 <- lmer(math ~ mother_educ_level + father_educ_level + gender + computer + internet + desk + room + television + car + n_books + wealth + escs + (1 | country_name/public_private),
+     data=sub_math_df,
+     weights = stu_wgt,
+     REML = FALSE)
+
+summary(mod1)
+
+plot_model(mod1, 
+           type  = "re", 
+           width = .5, 
+           show.values = T)
+```
+
+In general, private schools perform better than public school with greatest disparity seen in Poland. 
+
+Since private schools are poorly represented in the data, here is the mixed effects model grouping by schools within country.
+
+```{r model_school_id}
+mod2 <- lmer(math ~mother_educ_level + father_educ_level + gender + computer + internet + desk + room + television + car + n_books + wealth + escs  + (1 | country_name/school_id),
+     data=sub_math_df,
+     weights = stu_wgt,
+     REML = FALSE)
+
+summary(mod2)
+```
+
+
+```{r model_school_id2}
+#| fig-height: 12
+p1 <- plot_model(mod2, type  = "re")[[1]]
+xlabels <- as.character(p1$data$term)
+oldxlabels <- xlabels
+first_finland <- grep("Finland", xlabels,value = FALSE)[length(grep("Finland", xlabels,value = FALSE))]
+first_SK <- grep("South Korea", xlabels,value = FALSE)[length(grep("South Korea", xlabels,value = FALSE))]
+first_Poland <- grep("Poland", xlabels,value = FALSE)[length(grep("Poland", xlabels,value = FALSE))]
+first_usa <- grep("United", xlabels,value = FALSE)[length(grep("United", xlabels,value = FALSE))]
+xlabels[!seq_along(xlabels) %in% c(first_finland, first_SK, first_Poland, first_usa)] <- ""
+names(xlabels) <- oldxlabels
+p1 + scale_x_discrete(labels = xlabels)
+```
+
+
+```{r model_school_id3}
+p2 <- plot_model(mod2, type  = "re", 
+           width = .5, 
+           show.values = T)[[2]]
+
+p2
+```
+
+Here are the coefficients and significance for the model grouped by public vs. private (left) and grouped by individual school (right) within the country grouping.
+
+```{r indiv_mod_comp}
+tab_model(mod1, mod2, show.aic = TRUE)
+```
+
+-   This confirms that socioeconomic factors play a critical role in the PISA math scores. Surprisingly the parent's education levels may matter less. Most significant predictors included gender as well as books, computer and internet access. Clearly books, computer and internet access impact the quality of education along with socioeconomic factors that may enable this. Oddly wealth negatively correlates with scores while `escs` positively correlates with score.
+
+-   Despite the added complexity of groupings by schools within a country, we see that this model has a lower AIC than grouping by private/public schools suggesting that the random effect of school offers more useful information than public vs. private.
+
+-   Additionally, we see that intra-school variability in individuals is higher in Finland but inter-school variability is lower. In contrast, choice of school affects scores much more profoundly in United States.
+
+-   There is a large variability at the country level in Finland unlike USA, South Korea and Poland. Its unclear what accounts for this diversity within the country. 
+
+
+### Schools in a Country
+
+Now, we look at school level predictors by averaging the individual students data within schools.
+
+```{r school_preds}
+school_df2 <- sub_math_df %>%
+  group_by(country_name, school_id, fund_gov, fund_fees, fund_donation, boy_fraction, school_size, stratio, public_private, staff_shortage, sch_wgt) %>%
+  dplyr::summarize(math = weighted.mean(math,w=stu_wgt,  na.rm = T)) %>%
+  ungroup()
+  
+sch_mod <- lmer(math ~ fund_gov + fund_fees + fund_donation + boy_fraction + school_size + stratio + public_private + staff_shortage + (1 | country_name),
+     data=school_df2,
+     weights = sch_wgt,
+     REML = FALSE)
+
+tab_model(sch_mod)
+
+plot_model(sch_mod, type  = "re")
+
+```
+
+
+* The only effect that matters appears to be student-teacher ratio. School funding sources and boy-girl ratio didn't affect school outcomes in math scores. If we ignore p < 0.05 threshold, it's clear that school size and staff shortages trend towards significantly affecting school scores.
+
+* The country random effect was also very important. Again, Finland showed high variability in school performances.
+
+
+### The curious case of Finland
+
+Finland shows uniformity among schools but large variability at the country level. Perhaps we would need to model this with varying slopes for the predictors and how they interact within each school. This unfortunately led to models at/near singularity. Instead I simplified the model by removing the country level and looking at Finland alone grouped by its schools.
+
+```{r finland}
+finland_df <- sub_math_df %>% filter(country_name == "Finland")
+
+mod_f <- lmer(math ~mother_educ_level + father_educ_level + gender + computer + internet + desk + room + television + car + n_books + wealth + escs  + 
+                (mother_educ_level + father_educ_level + gender + computer + internet + desk + room + television + car + n_books + wealth + escs  | school_id),
+     data=finland_df,
+     weights = stu_wgt, REML=FALSE)
+
+summary(mod_f)
+```
+
+
+```{r finland2}
+#| fig-width: 12
+plot_model(mod_f, type  = "re") + theme(text = element_text(size=7))
+```
+
+*This still led to a near singular model because of model complexity*
+
+If the model is to be trusted, we see that individual variability within schools is high for whether or not one has a car and access to internet. Also surprisingly, unlike the nested countries model, internet was not significantly predictive for math scores in Finland. In contrast having a desk was important. 
+This highlights a limitation of the modeling approach. Different countries and potentially schools have different responses to each of the predictors. A varying slopes model for each predictor with multiple levels may be ideal but such models fail to converge. 
+
+
+## *Smartness* explained by the book
+
+1.  Expectations for teacher excellence
+    -   Finnish teacher training programs are prestigious and extremely selective (think Georgetown to MIT acceptance rates!) while US teacher programs have a low admission bar.
+    -   Korean Hogwans (private after school college prep tutoring) teachers earn very well and their performance is evaluated by student and parent surveys which in turn determines teach dismissals
+    -   In Finland, teachers undergo 1 year of practical training as opposed to 12 - 15 weeks required in USA.
+2.  Student's innate drive
+    -   In high pressure environments like Korea, students have an innate drive that is reinforced by parents, peers and culture
+    -   *Sisu* is a cultural mindset in Finland that encapsulates grit, determination, tenacity and resilience in one word.
+    -   Standardized tests with standards above that of the SAT may be used as a tool to cultivate drive and create manageable pressure along with providing an aspirational goal.
+3.  Curriculum standards
+    -   When school demands less of kids they lose interest and don't take it seriously.
+    -   American schools tend to have lower standards (math is 2 grades below Korean schools!) with a heavy emphasis on sports. This is further emphasized by high standards and the presidential tests. The focus on athletics may drain resources from academics.
+    -   Rigor can also be counteracted by trivialized assignments e.g multiple choice questions and poster projects that don't promote as much critical thinking
+4.  Cultural mindsets
+    -   Korean society supports their students on the national standardized test day by delaying stock markets to minimize traffic and grounding planes to avoid excessive noise.
+    -   There is a collective expectation that academics is meaningful and important for future success in life
+5.  Parental involvement
+    -   Oddly parent participation in school through volunteer opportunities and PTA roles did not enhance a child's learning outcomes
+    -   Instead, activities like daily reading and discussion on a variety of topics to enrich a child's learning more directly were beneficial.
+    -   Parents serving as coaches rather cheerleaders are more effective by offering authentic and not excessive. An authoritative parenting style should foster independence but also enforce firm boundaries.
+6.  Distances in teacher-student relationships to preserve rigor
+    -   Teachers in Finland actually aim for minimal empathy and no labeling to preserve rigor and avoid such systemic biases.
+    -   In America, teachers strive to build personal relationships with their students.
+
+And interestingly, the above features dominate things like racial disparities and poverty. Oddly, labeling children by race or economic status might have actually impeded an unbiased approach to teaching.
+
+
+## Summary
+
+It was interesting to dive into the complexities of education systems. I also had an appreciation for the investigative approaches in the book which offered more qualitative findings.
+
+It was nice to see that my models leaned in the same direction as the book. They definitely point towards the importance of academic rigor with access to internet and more books being important to student success. They also highlighted the importance of teaching since student-teacher ratio was predictive of a school's overall scores. 
+
+Most of all, building systems that beget academic excellence is very challenging. The book is worth a read!

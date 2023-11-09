@@ -1,0 +1,26 @@
+---
+title: "Hello!"
+image: profile2.PNG
+about:
+  template: jolla
+  links:
+    - icon: linkedin
+      text: LinkedIn
+      href: www.linkedin.com/in/bamini-balaji
+    - icon: github
+      text: Github
+      href: https://github.com/bbamini
+
+---
+
+:::{#hero-heading}
+
+I am Bamini, chemical engineer, data scientist and lifelong learner. I studied at Caltech and Stanford.
+
+My interests are at the intersection of data science and biotechnology. I'm excited by new tools for computational biology as well as ideas that can be applied towards achieving better health outcomes and equity. On the technical front, I enjoy building vibrant visualizations and predictive models and applying analytics for social good. 
+
+I have worked in digital health and drug discovery and development for oncology and Hepatitis C. 
+
+Reach out if you'd like to connect or collaborate!
+
+:::
