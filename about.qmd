@@ -8,10 +8,10 @@ about:
   links:
     - icon: linkedin
       text: LinkedIn
-      href: www.linkedin.com/in/bamini-balaji
+      href: https://www.linkedin.com/in/bamini-balaji
     - icon: github
       text: Github
-      href: https://github.com/bbamini
+      href: https://www.github.com/bbamini
 ---
 
 ::: {#hero-heading}

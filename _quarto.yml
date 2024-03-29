@@ -19,9 +19,9 @@ website:
       - text: "Contact"
         href: "mailto:bbamini@gmail.com"
       - icon: github
-        href: https://github.com/bbamini
+        href: https://www.github.com/bbamini
       - icon: linkedin
-        href: www.linkedin.com/in/bamini-balaji
+        href: https://www.linkedin.com/in/bamini-balaji
 format:
   html:
     theme: minty
