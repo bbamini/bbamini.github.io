@@ -9,7 +9,7 @@
 <meta name="author" content="Bamini Balaji">
 <meta name="dcterms.date" content="2023-10-04">
 
-<title>Bamini Balaji - DataKind DataDive (09/2023)</title>
+<title>Bamini Balaji - DataKind IMF DataDive</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -108,9 +108,11 @@ ul.task-list li input[type="checkbox"] {
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">DataKind DataDive (09/2023)</h1>
+      <h1 class="title">DataKind IMF DataDive</h1>
                                 <div class="quarto-categories">
                 <div class="quarto-category">Geospatial</div>
+                <div class="quarto-category">Streamlit</div>
+                <div class="quarto-category">Plotly</div>
               </div>
                   </div>
   </div>
@@ -146,30 +148,37 @@ ul.task-list li input[type="checkbox"] {
 
 
 
-<p>I had a great time volunteering in DataKind’s DataDive event in collaboration with the International Monetary Fund (IMF).</p>
-<p>Over a short 4 day window we collaborated globally across time zones to build pipelines to help estimate financial and economic exposure and vulnerabilities of built-up areas that are at risk to (increasing) climate hazards.</p>
+<p>Lessons from evaluating risks imposed by climate change to urban settlements</p>
+<section id="data-dive-092023" class="level2">
+<h2 class="anchored" data-anchor-id="data-dive-092023">Data Dive 09/2023</h2>
+<p>DataKind is an innovative organization that fosters global collaboration for social good by teaming up social impact organizations with individuals all over the world to build real data solutions to societal probelms. The DataDive events are much like fast-paced high energy hackathons where volunteers collaborate to sketch initial prototypes and help evaluate project feasibility. This was my second DataDive event.</p>
+<p>Here I had a great time volunteering to support a project with the International Monetary Fund (IMF). Over a short 4 day window we collaborated globally across time zones to build pipelines to estimate financial and economic exposure and vulnerabilities of urban settlements at risk from climate hazards.</p>
 <p>Here’s some things I learned:</p>
 <ol type="1">
-<li>Using the <a href="https://nominatim.org/release-docs/latest/">Nominatim API</a> to access OpenStreetMap (OSM) data and reverse geo-code buildings and even identify surface and roof materials of structures</li>
+<li>Using the <a href="https://nominatim.org/release-docs/latest/">Nominatim API</a> to access OpenStreetMap (OSM) data and reverse geo-code buildings. Reverse geocoding is the process of going from latitude/longitude coordinates to a human readable address.
+<ul>
+<li><p>PROS: The Nominatim API was free for use and even enabled identification of surface and roof materials of structures.</p></li>
+<li><p>CONS: Strict usage policy that limits users to single threaded requests at 1 request per second.</p></li>
+</ul></li>
 <li>Google has an incredible <a href="https://sites.research.google/open-buildings/">Open Buildings dataset</a> with impressive global coverage and accuracy exceeding data in OSM!</li>
 <li>I focused on data from South Africa and Mozambique. Coastal Mozambique is hit with a lot of cyclones yearly, making analyses like these invaluable for safety planning!</li>
-<li>Streamlit is a pretty simple tool for web apps and I can see some advantages over Shiny (previously only R focused) mainly in that it is less verbose. However its focus on simplicity could prove challenging for apps with lot of reactive complexity.</li>
+<li>Streamlit is a pretty simple tool for web apps and I can see some advantages over Shiny (previously only R focused) mainly in that it is less verbose. However its focus on simplicity could prove challenging for apps with lot of reactive complexity. Here I used <code>plotly</code> to create interactive geospatial visualizations that map building locations and structure density as well as overlays with past storm traces.</li>
+<li>If time had permitted, I would have liked to further quantify the impact of flood risks to building covered land areas in various geographic regions.</li>
 </ol>
-<p>Here is a simple <a href="https://datadive-imf-climate-draft.streamlit.app/">app prototype</a> I created to look at storm traces and buildings in South Africa and Mozambique.</p>
+<p>Here is the code for an <a href="https://github.com/bbamini/datadive_streamlit">app prototype</a> I created to look at storm traces and buildings in South Africa and Mozambique. A simplified version of the app can be seen <a href="https://datadive-imf-climate-draft.streamlit.app">here</a>, however it occasionally encounters resource limitations while running.</p>
+<p><img src="images/buildings.png" class="img-fluid"></p>
+<p><img src="images/land_coverage.png" class="img-fluid"></p>
+<p><img src="images/storm_traces.png" class="img-fluid"></p>
+<p>Overall, this event reminded me of the synergy of deadlines and personal motivation. So many passionate volunteers and a few days to create something led to valuable learnings that can hopefully shape upcoming projects at Data Kind. I’d love to volunteer on a longer term project in the future with the team!</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><img src="Streamlit_app.png" class="img-fluid figure-img"></p>
-<figcaption class="figure-caption">Streamlit</figcaption>
-</figure>
-</div>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><img src="IMFDataDiveCertificate.png" class="img-fluid figure-img"></p>
+<p><img src="IMFDataDiveCertificate.png" class="img-fluid figure-img" width="400"></p>
 <figcaption class="figure-caption">Certificate</figcaption>
 </figure>
 </div>
 
 
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

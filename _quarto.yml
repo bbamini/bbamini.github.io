@@ -14,7 +14,7 @@ website:
         file: about.qmd
       - text: "Projects"
         file: index.qmd
-      - text: "TIL"
+      - text: "TIL Blog"
         file: blogindex.qmd
       - text: "Contact"
         href: "mailto:bbamini@gmail.com"

@@ -1,5 +1,5 @@
 ---
-title: "TIL"
+title: "TIL Blog"
 listing:
   contents: learning
   sort: "date desc"
